@@ -1,76 +1,84 @@
-"""
-Sparkle Backend Application - Entry Point.
+#!filepath main.py
+from fastapi import FastAPI, HTTPException
+from uuid import UUID
+from typing import List
 
-This script demonstrates the usage of the Sparkle modules to create a user,
-assess their profile, and generate a career recommendation.
-"""
+from models import (
+    UserProfile, RecommendationResponse, CourseResponse, 
+    ProgressUpdateRequest, EmotionalStage
+)
+from services import (
+    DomainRepository, CourseRepository, AssessmentService, ProgressService
+)
 
-import logging
-from .models import UserProfile
-from .services import ITDomainService, AIRecommendationService, AssessmentService
+app = FastAPI(title="Sparkle API")
 
-# Configure logger for main execution
-logger = logging.getLogger("SparkleApp")
-logging.basicConfig(level=logging.INFO)
+# Dependency Injection (Singleton for demo)
+domain_repo = DomainRepository()
+course_repo = CourseRepository()
+progress_service = ProgressService()
 
-def main():
+# Mock User DB
+MOCK_USER = UserProfile(
+    id=UUID("12345678-1234-5678-1234-567812345678"),
+    username="Dotun",
+    email="dotun@example.com",
+    ikigai_inputs={"love": 9, "good_at": 8, "world_needs": 7, "paid_for": 8}
+)
+
+@app.get("/recommendations/{user_id}", response_model=RecommendationResponse)
+async def get_recommendations(user_id: UUID):
     """
-    Main execution flow simulating a user journey on Sparkle.
+    Generates the personalized path and MERGES it with the user's
+    current progress and emotional state into a single response.
     """
-    logger.info("Starting Sparkle Career Guidance System...")
-
-    # 1. Initialize Services
-    domain_service = ITDomainService()
-    ai_service = AIRecommendationService(domain_service)
-
-    # 2. Simulate User Creation (Student entering IT)
-    try:
-        user = UserProfile(
-            username="Alex_Student",
-            email="alex@university.edu",
-            ikigai_inputs={
-                "love": 9,        # Loves tech
-                "good_at": 7,     # Decent coding skills
-                "world_needs": 5, # Unsure of market need
-                "paid_for": 8     # Knows it pays well
-            }
-        )
-        logger.info(f"User created: {user.username} | Email: {user.email}")
-    except ValueError as e:
-        logger.error(f"User creation failed: {e}")
-        return
-
-    # 3. Assessment Phase
-    # Determine Emotional Stage (High confidence initially, low competence)
-    emotional_stage = AssessmentService.determine_emotional_stage(confidence_level=9, competence_level=2)
-    user.current_emotional_stage = emotional_stage
-    logger.info(f"User Emotional Stage: {user.current_emotional_stage.value}")
-
-    # Determine Ikigai Quadrant
-    ikigai_quadrant = AssessmentService.calculate_ikigai_quadrant(user)
-    logger.info(f"Dominant Ikigai Quadrant: {ikigai_quadrant.value}")
-
-    # 4. Recommendation Phase
-    try:
-        rec = ai_service.generate_recommendation(user)
+    # 1. Logic: Determine Domain based on Ikigai
+    quadrant = AssessmentService.ikigai_quadrant(MOCK_USER)
+    
+    # 2. Logic: Fetch Courses (Simplified for demo: fetching all)
+    all_courses = []
+    for domain in domain_repo.all():
+        for sub in domain.subdomains:
+            all_courses.extend(course_repo.by_subdomain(sub.name))
+            
+    # 3. MERGE: Create the Response Objects
+    response_courses = []
+    
+    for course in all_courses:
+        # Get dynamic progress
+        current_percent = progress_service.get_progress(user_id, course.id)
+        # Calculate dynamic emotion
+        current_emotion = AssessmentService.predict_emotional_stage(current_percent)
         
-        # 5. Output Results
-        print("\n" + "="*40)
-        print(f"SPARKLE CAREER REPORT FOR: {user.username.upper()}")
-        print("="*40)
-        print(f"Status: {user.current_emotional_stage.value}")
-        print(f"Alignment: {ikigai_quadrant.value}")
-        print("-" * 40)
-        print(f"AI Recommendation: {', '.join(rec.recommended_domains)}")
-        print(f"Reasoning: {rec.reasoning}")
-        print(f"Confidence: {rec.confidence_score * 100}%")
-        print("Next Steps:")
-        for step in rec.next_steps:
-            print(f" - {step}")
-        print("="*40 + "\n")
-        
-    except Exception as e:
-        logger.error(f"Error generating recommendation: {e}")
+        # Build the DTO
+        response_courses.append(CourseResponse(
+            id=course.id,
+            title=course.title,
+            platform=course.platform,
+            url=course.url,
+            level=course.level,
+            duration_hours=course.duration_hours,
+            # Merged fields
+            emotional_stage=current_emotion,
+            progress=current_percent
+        ))
+    
+    return RecommendationResponse(
+        user_id=user_id,
+        domains=[d.name for d in domain_repo.all()],
+        reasoning=f"Based on your strength in {quadrant.value}, we suggest these paths.",
+        confidence_score=0.92,
+        courses=response_courses
+    )
+
+@app.post("/progress", response_model=EmotionalStage)
+async def update_progress(data: ProgressUpdateRequest):
+    """Updates progress and returns the new Emotional Stage immediately."""
+    new_stage = progress_service.update_progress(
+        data.user_id, data.course_id, data.progress
+    )
+    return new_stage
 
 if __name__ == "__main__":
-    main()
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
