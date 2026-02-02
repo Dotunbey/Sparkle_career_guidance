@@ -12,7 +12,12 @@ from services import (
 )
 
 app = FastAPI(title="Sparkle API")
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"], # Allows your Next.js app
+    allow_credentials=True,
+    allow_methods=["*"], # Allows GET, POST, etc.
+    allow_headers=["*"],
 # Dependency Injection (Singleton for demo)
 domain_repo = DomainRepository()
 course_repo = CourseRepository()
