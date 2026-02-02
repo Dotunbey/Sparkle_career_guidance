@@ -1,4 +1,4 @@
-#!filepath hooks/useProgress.ts
+
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { updateProgress } from "@/lib/api";
 import { DEMO_USER_ID } from "@/lib/constants";
