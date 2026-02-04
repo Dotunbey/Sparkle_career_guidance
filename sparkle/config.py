@@ -1,18 +1,13 @@
-"""
-Sparkle Backend Application - Configuration Module.
-
-This module handles configuration management using Pydantic's BaseSettings.
-It loads environment variables and provides a centralized configuration object.
-"""
-
 #!filepath config.py
 import logging
-from pydantic import BaseSettings, Field
+# UPDATED IMPORT FOR PYDANTIC V2
+from pydantic_settings import BaseSettings 
+from pydantic import Field
 
 class Settings(BaseSettings):
-    app_name: str = Field("Sparkle", env="APP_NAME")
-    debug: bool = Field(False, env="DEBUG")
-    log_level: str = Field("INFO", env="LOG_LEVEL")
+    app_name: str = Field("Sparkle", validation_alias="APP_NAME")
+    debug: bool = Field(False, validation_alias="DEBUG")
+    log_level: str = Field("INFO", validation_alias="LOG_LEVEL")
 
     class Config:
         env_file = ".env"
