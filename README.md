@@ -1,3 +1,3 @@
 # Sparkle_career_guidance
 
-this is a guidance platfo
+this is a guidance platform for people who want to venture into tech
