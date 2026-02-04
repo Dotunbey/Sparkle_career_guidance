@@ -1,4 +1,4 @@
-#!filepath config.py
+
 import logging
 # UPDATED IMPORT FOR PYDANTIC V2
 from pydantic_settings import BaseSettings 
